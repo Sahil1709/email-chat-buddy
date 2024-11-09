@@ -2,15 +2,30 @@ import os
 import base64
 import json
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from .models import EmailBatch, SearchQuery, SearchResponse
+from .db import VectorDB
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-app = FastAPI()
+app = FastAPI(title="Email RAG API")
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # If modifying these SCOPES, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+
+# Initialize vector store
+vector_db = VectorDB()
 
 def authenticate_gmail():
     creds = None
@@ -80,6 +95,28 @@ def fetch_emails():
 
     except HttpError as error:
         raise HTTPException(status_code=500, detail=f"An error occurred: {error}")
+    
+@app.post("/api/emails/add")
+async def add_emails(batch: EmailBatch):
+    """
+    Add batch of emails to vector store
+    """
+    result = vector_db.add_emails(batch.emails)
+    
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result["message"])
+        
+    return result
+
+@app.post("/api/emails/search", response_model=SearchResponse)
+async def search_emails(query: SearchQuery):
+    """
+    Search emails and get structured event summary
+    """
+    try:
+        return vector_db.search(query.query, query.n_results)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
