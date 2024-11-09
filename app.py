@@ -1,6 +1,8 @@
 import os
 import base64
 import json
+import unicodedata
+import re
 from fastapi import FastAPI, HTTPException
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -29,6 +31,13 @@ def authenticate_gmail():
         with open("token.json", "w") as token:
             token.write(creds.to_json())
     return creds
+
+def clean_text(text):
+    # Remove URLs
+    text = re.sub(r'http\S+', '', text)
+    # Remove unreadable characters
+    text = ''.join(c for c in text if unicodedata.category(c) != 'Cf')
+    return text
 
 @app.get("/emails")
 def fetch_emails():
@@ -59,13 +68,14 @@ def fetch_emails():
 
             email_body = ""
             # Decode message content if available in 'body'
-            if "data" in message["payload"]["body"]:
-                email_body = base64.urlsafe_b64decode(message["payload"]["body"]["data"]).decode("utf-8")
-            elif "parts" in message["payload"]:
+            # if "data" in message["payload"]["body"]:
+            #     email_body = base64.urlsafe_b64decode(message["payload"]["body"]["data"]).decode("utf-8")
+            if "parts" in message["payload"]:
                 for part in message["payload"]["parts"]:
                     if part["mimeType"] == "text/plain":
                         email_body = base64.urlsafe_b64decode(part["body"]["data"]).decode("utf-8")
 
+            email_body = clean_text(email_body)
             email_data.append({
                 "id": msg_id,
                 "sender": sender,
