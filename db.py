@@ -96,6 +96,7 @@ class VectorDB:
         return "\n".join(context_parts)
 
     def _get_llm_summary(self, query: str, context: str) -> str:
+        print(context)
         """Get structured summary from LLM"""
         prompt = f"""
         Based on the following query and email contents, provide a structured list of relevant answers 
@@ -112,10 +113,11 @@ class VectorDB:
         """
         
         completion = self.groq_client.chat.completions.create(
-            model="llama-3.2-11b-text-preview",
+            model="llama3-8b-8192",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=1000
         )
         
+        # print(context)
         return completion.choices[0].message.content

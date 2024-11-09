@@ -1,6 +1,8 @@
 import os
 import base64
 import json
+import re
+import unicodedata
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from .models import EmailBatch, SearchQuery, SearchResponse
@@ -26,6 +28,13 @@ SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
 # Initialize vector store
 vector_db = VectorDB()
+
+def clean_text(text):
+    # Remove URLs
+    text = re.sub(r'http\S+', '', text)
+    # Remove unreadable characters
+    text = ''.join(c for c in text if unicodedata.category(c) != 'Cf')
+    return text
 
 def authenticate_gmail():
     creds = None
@@ -73,13 +82,14 @@ def fetch_emails():
 
             email_body = ""
             # Decode message content if available in 'body'
-            if "data" in message["payload"]["body"]:
-                email_body = base64.urlsafe_b64decode(message["payload"]["body"]["data"]).decode("utf-8")
-            elif "parts" in message["payload"]:
+            # if "data" in message["payload"]["body"]:
+            #     email_body = base64.urlsafe_b64decode(message["payload"]["body"]["data"]).decode("utf-8")
+            if "parts" in message["payload"]:
                 for part in message["payload"]["parts"]:
                     if part["mimeType"] == "text/plain":
                         email_body = base64.urlsafe_b64decode(part["body"]["data"]).decode("utf-8")
 
+            email_body = clean_text(email_body)
             email_data.append({
                 "id": msg_id,
                 "sender": sender,
@@ -91,21 +101,28 @@ def fetch_emails():
             if count == 5:
                 break
 
-        return {"emails": email_data}
+        #return {"emails": email_data}
+        result = EmailBatch(emails=email_data)
+
+        print(add_emails(result))
+        return {"message": "Added emails to vector store"}
 
     except HttpError as error:
         raise HTTPException(status_code=500, detail=f"An error occurred: {error}")
     
-@app.post("/api/emails/add")
-async def add_emails(batch: EmailBatch):
+#@app.post("/api/emails/add")
+def add_emails(batch: EmailBatch):
     """
     Add batch of emails to vector store
     """
+    print("here")
+    print(batch.emails)
     result = vector_db.add_emails(batch.emails)
     
     if result["status"] == "error":
         raise HTTPException(status_code=500, detail=result["message"])
         
+    print(result)
     return result
 
 @app.post("/api/emails/search", response_model=SearchResponse)
