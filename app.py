@@ -105,8 +105,8 @@ def fetch_emails():
         #return {"emails": email_data}
         result = EmailBatch(emails=email_data)
 
-        print(add_emails(result))
-        return {"message": "Added emails to vector store"}
+        response = add_emails(result)
+        return response
 
     except HttpError as error:
         raise HTTPException(status_code=500, detail=f"An error occurred: {error}")
@@ -116,7 +116,6 @@ def add_emails(batch: EmailBatch):
     """
     Add batch of emails to vector store
     """
-    print("here")
     print(batch.emails)
     result = vector_db.add_emails(batch.emails)
     
