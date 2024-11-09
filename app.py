@@ -12,6 +12,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google.auth.transport.requests import Request
+from fastapi import Header
 
 app = FastAPI(title="Email RAG API")
 
@@ -54,24 +55,51 @@ def authenticate_gmail():
             token.write(creds.to_json())
     return creds
 
-@app.get("/emails")
-def fetch_emails():
-    creds = authenticate_gmail()
+@app.get("/gmail")
+async def get_gmail_messages(authorization: str = Header(...)):
     try:
+        # Extract the token from the Authorization header
+        token = authorization.split("Bearer ")[1]
+
+        # Set up Google credentials using the token from the user
+        credentials = Credentials(token)
+        service = build("gmail", "v1", credentials=credentials)
+        
+        # Fetch the user's Gmail messages
+        results = service.users().messages().list(userId="me", maxResults=5).execute()
+        messages = results.get("messages", [])
+
+        emails = []
+        for message in messages:
+            msg = service.users().messages().get(userId="me", id=message["id"]).execute()
+            emails.append(msg["snippet"])
+
+        return {"emails": emails}
+    
+    except HttpError as error:
+        raise HTTPException(status_code=400, detail=f"An error occurred: {error}")
+    except IndexError:
+        raise HTTPException(status_code=401, detail="Invalid token format")
+
+
+@app.get("/emails")
+def fetch_emails(authorization: str = Header(...)):
+    # creds = authenticate_gmail()
+    try:
+        token = authorization.split("Bearer ")[1]
+        creds = Credentials(token)
         # Connect to Gmail API
         service = build("gmail", "v1", credentials=creds)
         # List all messages
-        results = service.users().messages().list(userId="me").execute()
+        results = service.users().messages().list(userId="me", maxResults=5).execute() # change this maxResults later to get more emails
         messages = results.get("messages", [])
 
         if not messages:
             return {"message": "No emails found."}
 
         email_data = []
-        count = 0
         # Fetch each message data
         for msg in messages:
-            count += 1
             msg_id = msg["id"]
             message = service.users().messages().get(userId="me", id=msg_id).execute()
 
@@ -98,9 +126,6 @@ def fetch_emails():
                 "date": date,
                 "body": email_body
             })
-
-            if count == 5:
-                break
 
         #return {"emails": email_data}
         result = EmailBatch(emails=email_data)
