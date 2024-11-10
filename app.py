@@ -91,7 +91,7 @@ def fetch_emails(authorization: str = Header(...)):
         # Connect to Gmail API
         service = build("gmail", "v1", credentials=creds)
         # List all messages
-        results = service.users().messages().list(userId="me", maxResults=5).execute() # change this maxResults later to get more emails
+        results = service.users().messages().list(userId="me", maxResults=100).execute()
         messages = results.get("messages", [])
 
         if not messages:
@@ -124,7 +124,8 @@ def fetch_emails(authorization: str = Header(...)):
                 "sender": sender,
                 "subject": subject,
                 "date": date,
-                "body": email_body
+                "body": email_body,
+                "email_link": f"https://mail.google.com/mail/u/0/#inbox/{msg_id}"
             })
 
         #return {"emails": email_data}
