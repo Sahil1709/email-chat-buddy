@@ -30,7 +30,8 @@ class VectorDB:
                 metadatas.append({
                     'subject': email.subject,
                     'date': email.date,
-                    'sender': email.sender
+                    'sender': email.sender,
+                    'email_link': email.email_link
                 })
                 ids.append(email.id)
 
@@ -101,7 +102,7 @@ class VectorDB:
         prompt = f"""
         Based on the following query and email contents, provide a structured list of relevant answers 
         that match the query criteria. Extract and highlight specific details like dates, locations, 
-        and other relevant information. 
+        and give clickable email links and other relevant information. 
 
         Query: {query}
 

@@ -8,6 +8,7 @@ class Email(BaseModel):
     subject: str
     date: str
     body: str  # Changed from content to body
+    email_link: str
 
 class EmailBatch(BaseModel):
     emails: List[Email]
